@@ -15,7 +15,7 @@ intro.js
 
 You do **not** need `node_modules`, `package.json`, `package-lock.json`, or the verification harness for hosting.
 
-Before publishing: open `lab.js` and change `OWNER_PIN = '2470'` to your own PIN.
+Before publishing: open `lab.js` and change `OWNER_PIN` to your own PIN. The live deployment already uses a non-default value, but you should still set one you control before giving students access.
 
 ---
 

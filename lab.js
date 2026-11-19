@@ -7,7 +7,7 @@
 // in localStorage; see DEPLOY.md for the shared-database caveat.
 // ============================================================================
 
-const OWNER_PIN = '2470'; // Change this before publishing the lab.
+const OWNER_PIN = '4825'; // Owner PIN for the lab usage/billing window.
 const READINGS_KEY = 'tds.virtualLab.readings.v1';
 const BILLING_KEY = 'tds.virtualLab.billing.v1';
 

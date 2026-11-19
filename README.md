@@ -24,7 +24,7 @@ An interactive Three.js laboratory for exploring **general relativity** (Schwarz
 - In-panel stopwatch for elapsed experiment time.
 
 ### Owner usage & billing
-- **LAB USAGE / BILLING** button, protected by a simple owner PIN (default `2470`; change `OWNER_PIN` in `lab.js` before publishing).
+- **LAB USAGE / BILLING** button, protected by an owner PIN configured as `OWNER_PIN` in `lab.js`. The published deployment uses a non-default PIN; change it to your own before sharing with students.
 - Tracks per-session:
   - Total connected/open time
   - Active simulation running time (`STATE.isRunning === true`)
