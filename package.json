@@ -1,0 +1,18 @@
+{
+  "name": "time-dilation-simulator",
+  "version": "1.0.0",
+  "description": "Virtual Relativity Lab with reading logs, printable reports, and owner usage/billing",
+  "private": true,
+  "scripts": {
+    "start": "python -m http.server 8000",
+    "test": "node verify_relativity.js"
+  },
+  "keywords": [
+    "relativity",
+    "black-hole",
+    "time-dilation",
+    "virtual-lab",
+    "threejs"
+  ],
+  "license": "MIT"
+}

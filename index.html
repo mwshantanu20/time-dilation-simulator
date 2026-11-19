@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#05060f">
+    <title>Time Dilation Simulator</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="intro.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+<!-- COSMIC INTRO — journey through the universe → Milky Way → TAP TO START -->
+<div id="cosmicIntro" class="cosmic-intro">
+    <div class="intro-nebula"></div>
+    <canvas id="introCanvas" class="intro-canvas"></canvas>
+    <div class="intro-vignette"></div>
+    <div id="introCaption" class="intro-caption"></div>
+    <div id="introSkip" class="intro-skip">CLICK ANYWHERE TO SKIP THE JOURNEY</div>
+    <div id="introStart" class="intro-start">
+        <div class="intro-start-inner">
+            <div class="intro-arrived">✦ TRAVEL LOG COMPLETE — MILKY WAY GALAXY ✦</div>
+            <h1 class="intro-title">TIME DILATION SIMULATOR</h1>
+            <p class="intro-sub">Welcome to the <b>Virtual Relativity Lab</b>. After crossing billions of light-years, your ship has entered the Milky Way and taken orbit around a stellar-mass black hole. <em>Einstein was right:</em> the closer you drift toward it, the slower your clock ticks.</p>
+            <div class="intro-cols">
+                <div class="intro-col">
+                    <h2>NAVIGATE THE VIEW</h2>
+                    <ul>
+                        <li><b>Drag</b> — orbit around the black hole</li>
+                        <li><b>Scroll wheel</b> — zoom in / out</li>
+                        <li><b>Right-drag / Shift+drag</b> — pan across spacetime</li>
+                        <li><b>Double-click</b> — fly to any point on the fabric</li>
+                        <li><b>Click a glowing label</b> (EARTH, PULSAR…) — fly straight to that object</li>
+                    </ul>
+                </div>
+                <div class="intro-col">
+                    <h2>RUN THE SIMULATION</h2>
+                    <ul>
+                        <li><b>START / PAUSE</b> — run or freeze the three clocks</li>
+                        <li><b>RESET</b> — return everything to defaults</li>
+                        <li><b>LAB NOTEBOOK</b> — log readings, load presets, print a report</li>
+                        <li><b>LAB USAGE / BILLING</b> — owner-only session time tracker</li>
+                        <li><b>Sliders</b> — distance (r/rₛ) · mass (0.1–5 M☉) · speed · sensitivity · max rate · <b>velocity (up to c)</b></li>
+                        <li><b>AUTO CAMERA</b> / <b>FULLSCREEN</b> — sit back and watch</li>
+                    </ul>
+                </div>
+            </div>
+            <button id="introStartBtn" class="intro-start-btn">✦ TAP TO START ✦</button>
+            <div class="intro-tip">TIP: open <b>PHYSICS DETAILS</b> at any time for the equations, the three-clock system and deeper help.</div>
+        </div>
+    </div>
+</div>
+
+<!-- Startup Splash -->
+<div id="startupScreen" class="startup-screen">
+    <div class="startup-content">
+        <div class="startup-title">TIME DILATION SIMULATOR</div>
+        <div class="startup-text" id="startupText">INITIALIZING SPACETIME...</div>
+        <div class="startup-bar"><div class="startup-bar-fill" id="startupBarFill"></div></div>
+        <div class="startup-hint">CLICK TO SKIP</div>
+    </div>
+</div>
+
+<!-- Post-effect overlays -->
+<div class="fx-vignette" id="fxVignette"></div>
+<div class="fx-edge-glow" id="warningOverlay"></div>
+
+<!-- Warning text -->
+<div id="warningText" class="warning-text"></div>
+
+<!-- Three.js Canvas - Full viewport -->
+<div id="canvas-container" class="canvas-container"></div>
+
+<!-- ===== CLOCK HUD ===== -->
+<div class="clocks-hud">
+    <div class="clock-card card-local">
+        <div class="clock-card-label">LOCAL TIME</div>
+        <div class="clock-card-time" id="localClock">00:00:00</div>
+        <div class="clock-time-units">HRS&nbsp;&nbsp;&nbsp;MIN&nbsp;&nbsp;&nbsp;SEC</div>
+        <div class="clock-card-note">REAL WORLD</div>
+    </div>
+    <div class="clock-card card-reference">
+        <div class="clock-card-label">REFERENCE</div>
+        <div class="clock-card-time clock-time-ref" id="earthClock">00:00:00</div>
+        <div class="clock-time-units">HRS&nbsp;&nbsp;&nbsp;MIN&nbsp;&nbsp;&nbsp;SEC</div>
+        <div class="clock-card-note">EARTH OBSERVER @ 26,500 ly</div>
+    </div>
+    <div class="clock-card card-probe">
+        <div class="clock-card-label">PROBE</div>
+        <div class="clock-card-time clock-time-probe" id="probeClock">00:00:00</div>
+        <div class="clock-time-units">HRS&nbsp;&nbsp;&nbsp;MIN&nbsp;&nbsp;&nbsp;SEC</div>
+        <div class="clock-card-note">TIME RATE <span id="timeRate">1.0000×</span></div>
+    </div>
+</div>
+
+<!-- ===== SIMULATION HUD (compact) ===== -->
+<div class="hud-panel sim-hud">
+    <div class="hud-row"><span class="hud-k">MASS</span><span class="hud-v" id="massDisplay">5.0 M☉</span></div>
+    <div class="hud-row"><span class="hud-k">DISTANCE</span><span class="hud-v" id="distanceValue">30.0 rₛ</span></div>
+    <div class="hud-row"><span class="hud-k">VELOCITY</span><span class="hud-v" id="velocityDisplay">0.000 c</span></div>
+    <div class="hud-row"><span class="hud-k">LORENTZ &gamma;</span><span class="hud-v" id="gammaDisplay">1.0000</span></div>
+    <div class="hud-row"><span class="hud-k">TIME RATE</span>
+        <div class="rate-meter" aria-label="Time rate scale 0 to max">
+            <span class="rate-scale">0.0000×</span>
+            <div class="rate-track"><div class="rate-marker" id="rateMarker"></div></div>
+            <span class="rate-scale" id="rateScaleMax">2.0000×</span>
+        </div>
+        <span class="hud-v" id="timeRateHud">1.0000×</span>
+    </div>
+    <div class="hud-row"><span class="hud-k">MAX RATE</span><span class="hud-v" id="maxRateValue">2.0×</span></div>
+    <div class="hud-row"><span class="hud-k">REDSHIFT (z)</span><span class="hud-v" id="redshiftDisplay">0.000</span></div>
+    <div class="hud-row"><span class="hud-k">TIDAL STRESS</span>
+        <span class="hud-tidal">
+            <span class="tidal-track"><span class="tidal-fill" id="tidalFill"></span></span>
+            <span class="hud-v" id="tidalDisplay">0%</span>
+        </span>
+    </div>
+    <div class="hud-row"><span class="hud-k">PING LAG</span><span class="hud-v" id="pingLagDisplay">0.000 ms</span></div>
+    <div class="hud-row"><span class="hud-k">SPIN (a)</span><span class="hud-v" id="spinDisplay">0.00</span></div>
+    <div class="hud-row"><span class="hud-k">SCHWARZSCHILD</span><span class="hud-v" id="schwarzschildValue">14.77 km</span></div>
+</div>
+
+<!-- ===== BOTTOM CONTROLS ===== -->
+<div class="controls-hud">
+    <div class="controls-row controls-buttons">
+        <button class="btn btn-primary" id="startPauseBtn" aria-label="Start or Pause simulation">START</button>
+        <button class="btn btn-secondary" id="resetBtn" aria-label="Reset simulation">RESET</button>
+        <button class="btn btn-secondary" id="pulsarSoundBtn" aria-label="Toggle Pulsar sound">PULSAR: OFF</button>
+        <button class="btn btn-secondary" id="cinematicBtn" aria-label="Toggle Cinematic Camera">AUTO CAMERA</button>
+        <button class="btn btn-secondary" id="viewHomeBtn" aria-label="Fly back to overview">VIEW HOME</button>
+        <button class="btn btn-secondary" id="fullscreenBtn" aria-label="Toggle Fullscreen">FULLSCREEN</button>
+    </div>
+    <div class="controls-row sliders">
+        <div class="slider-group">
+            <label for="distanceSlider" title="Probe distance in Schwarzschild radii">DISTANCE (r/rₛ)</label>
+            <input type="range" id="distanceSlider" min="1.0" max="50" step="0.1" value="30">
+            <span class="slider-value" id="distanceSliderValue">30.0 rₛ</span>
+        </div>
+        <div class="slider-group">
+            <label for="massSlider" title="Black hole mass in solar masses (0.1 to 5)">MASS</label>
+            <input type="range" id="massSlider" min="0.1" max="5" step="0.1" value="5">
+            <span class="slider-value" id="massSliderValue">5.0 M☉</span>
+        </div>
+        <div class="slider-group">
+            <label for="speedSlider">SPEED</label>
+            <input type="range" id="speedSlider" min="0.1" max="5" step="0.1" value="1">
+            <span class="slider-value" id="speedSliderValue">1.0×</span>
+        </div>
+        <div class="slider-group">
+            <label for="sensitivitySlider">SENSITIVITY</label>
+            <input type="range" id="sensitivitySlider" min="0.5" max="3" step="0.1" value="1">
+            <span class="slider-value" id="sensitivitySliderValue">1.0×</span>
+        </div>
+        <div class="slider-group">
+            <label for="maxRateSlider" title="Probe time rate ceiling when far from the black hole">MAX RATE</label>
+            <input type="range" id="maxRateSlider" min="1" max="5" step="0.1" value="2">
+            <span class="slider-value" id="maxRateSliderValue">2.0×</span>
+        </div>
+        <div class="slider-group">
+            <label for="velocitySlider" title="Probe speed as a fraction of light speed (special relativity)">VELOCITY</label>
+            <input type="range" id="velocitySlider" min="0" max="1" step="0.001" value="0">
+            <span class="slider-value" id="velocitySliderValue">0.0% c</span>
+        </div>
+        <div class="slider-group">
+            <label for="spinSlider" title="Kerr spin parameter a = Jc / GM² (0 = static, 0.99 = near-extremal)">BLACK HOLE SPIN</label>
+            <input type="range" id="spinSlider" min="0" max="0.99" step="0.01" value="0">
+            <span class="slider-value" id="spinSliderValue">0.00</span>
+        </div>
+    </div>
+    <div class="controls-row controls-footer">
+        <button class="btn btn-secondary details-btn" id="infoToggleBtn" aria-label="Show Physics Details">PHYSICS DETAILS</button>
+        <button class="btn btn-secondary details-btn" id="labToggleBtn" aria-label="Open Virtual Lab Notebook">LAB NOTEBOOK</button>
+        <button class="btn btn-secondary details-btn owner-btn" id="billingToggleBtn" aria-label="Open Lab Usage and Billing">LAB USAGE / BILLING</button>
+    </div>
+</div>
+
+<!-- 3D Labels container -->
+<div id="labelsLayer" class="labels-layer">
+    <div id="labelMercury" class="object-label label-planet">MERCURY</div>
+    <div id="labelVenus" class="object-label label-planet">VENUS</div>
+    <div id="labelEarth" class="object-label label-earth">EARTH</div>
+    <div id="labelMoon" class="object-label label-planet">MOON</div>
+    <div id="labelMars" class="object-label label-planet">MARS</div>
+    <div id="labelJupiter" class="object-label label-planet">JUPITER</div>
+    <div id="labelSaturn" class="object-label label-planet">SATURN</div>
+    <div id="labelNeptune" class="object-label label-planet">NEPTUNE</div>
+    <div id="labelProbe" class="object-label label-probe">PROBE</div>
+    <div id="labelSpacetime" class="object-label label-spacetime">CURVED SPACETIME</div>
+    <div id="labelGalaxy1" class="object-label label-galaxy">GALAXY 1</div>
+    <div id="labelGalaxy2" class="object-label label-galaxy2">GALAXY 2 · WHITE HOLE EXIT</div>
+    <div id="labelPulsar" class="object-label label-galaxy">PULSAR</div>
+</div>
+
+<!-- ===== PHYSICS DETAILS PANEL ===== -->
+<div class="info-panel" id="infoPanel" role="dialog" aria-label="Physics details">
+    <div class="info-panel-inner">
+        <div class="info-header">
+            <span>TIME DILATION SIMULATOR — PHYSICS DETAILS</span>
+            <button class="close-btn" id="infoCloseBtn" aria-label="Close">&times;</button>
+        </div>
+        <div class="info-content">
+            <h3>Gravitational Time Dilation</h3>
+            <p>According to Einstein's general relativity and the Schwarzschild solution, clocks run slower in stronger gravitational fields. A clock near a black hole runs noticeably slower compared to a distant observer.</p>
+
+            <h3>Schwarzschild Radius</h3>
+            <div class="equation">r<sub>s</sub> = 2GM/c&sup2;</div>
+            <ul>
+                <li><strong>r<sub>s</sub></strong> = Schwarzschild radius (event horizon)</li>
+                <li><strong>G</strong> = gravitational constant = 6.674 &times; 10&#x207B;&#xB9;&#xB9; m&sup3; kg&#x207B;&sup1; s&#x207B;&sup2;</li>
+                <li><strong>M</strong> = mass of black hole</li>
+                <li><strong>c</strong> = speed of light = 299,792,458 m/s</li>
+                <li>The MASS slider spans <strong>0.1&ndash;5.0 M&#9737;</strong>. At 5 M&#9737;, r<sub>s</sub> &asymp; 14.77 km; at 0.1 M&#9737;, r<sub>s</sub> &asymp; 0.30 km. Because distance is entered in r/r<sub>s</sub>, the normalized geometry stays stable across the whole range.</li>
+                <li>The Earth reference sits <strong>26,500 ly</strong> away: r<sub>s</sub>/r &lt; 8 &times; 10<sup>&minus;17</sup>, so its gravitational dilation is negligible.</li>
+            </ul>
+
+            <h3>Time Dilation Factor</h3>
+            <div class="equation">d&tau;/dt = &radic;(1 - r<sub>s</sub>/r)</div>
+            <ul>
+                <li><strong>d&tau;/dt</strong> = proper time rate ratio (local time / reference time)</li>
+                <li><strong>r</strong> = distance from black hole center</li>
+                <li>When r = r<sub>s</sub> (event horizon), d&tau;/dt = 0 (infinite time dilation)</li>
+                <li>When r &rarr; &infin; (far away), d&tau;/dt &rarr; 1 (normal rate)</li>
+                <li>The <strong>displayed TIME RATE</strong> is the probe's d&tau;/dt divided by the Earth observer's rate at <strong>26,500 light-years</strong>. For any mass up to 5 M&#9737;, the Earth factor &radic;(1 &minus; r<sub>s</sub>/26,500 ly) is <strong>1.0000&times;</strong> to double precision. The probe therefore reads about <strong>0.9831&times;</strong> at its visual baseline of 30 r<sub>s</sub>, falls to <strong>0.0000&times;</strong> at the horizon (1 r<sub>s</sub>), and approaches 1&times; only far beyond the slider range. The 3D scene is compressed to r/r<sub>s</sub> units so WebGL stays readable; the Earth glyph at 30 scene units is a visual proxy, not a physical distance.</li>
+            </ul>
+
+            <h3>Kinematic (Velocity) Time Dilation — Special Relativity</h3>
+            <p>Motion through space dilates time just as gravity does. In special relativity, a clock moving at velocity <strong>v</strong> relative to a stationary observer is measured to tick slower. The coordinate time <strong>&Delta;t</strong> on the reference clock corresponding to a proper-time interval <strong>&Delta;t<sub>0</sub></strong> on the moving clock is:</p>
+            <div class="equation">&Delta;t = &Delta;t<sub>0</sub> / &radic;(1 &minus; v&sup2;/c&sup2;)</div>
+            <p>The same result expressed as the moving clock's <strong>proper-time rate</strong> (the form used by this simulator) is:</p>
+            <div class="equation">d&tau;/dt = &radic;(1 &minus; v&sup2;/c&sup2;) = 1/&gamma; &nbsp;,&nbsp; &gamma; = 1/&radic;(1 &minus; v&sup2;/c&sup2;)</div>
+            <ul>
+                <li><strong>v</strong> = velocity of the probe / observer relative to the reference frame (the VELOCITY slider, 0 to 1 in units of c)</li>
+                <li><strong>c</strong> = speed of light = 299,792,458 m/s</li>
+                <li><strong>&Delta;t<sub>0</sub></strong> = proper time measured by the moving observer's own clock; <strong>&Delta;t</strong> = time measured by the stationary reference observer</li>
+                <li><strong>&gamma;</strong> (gamma) = Lorentz factor, shown live as LORENTZ &gamma; in the HUD</li>
+                <li>As <strong>v &rarr; 0</strong>, &radic;(1 &minus; v&sup2;/c&sup2;) &rarr; 1 and &gamma; &rarr; 1: there is no kinematic dilation, and the simulator behaves exactly as it did before velocity was added</li>
+                <li>As <strong>v &rarr; c</strong>, the denominator &radic;(1 &minus; v&sup2;/c&sup2;) &rarr; 0, so &Delta;t &rarr; &infin; for a fixed &Delta;t<sub>0</sub> and &gamma; &rarr; &infin;. From the reference frame the moving clock effectively stops; the proper-time rate falls to zero — <strong>time completely freezes</strong></li>
+                <li>Scale examples: 0.5c &rarr; &gamma; = 1.1547, probe rate 0.8660&times;; 0.99c &rarr; &gamma; = 7.0888, probe rate 0.1411&times;; 0.999c &rarr; &gamma; = 22.3663, probe rate 0.0447&times;; at exactly c the rate is <strong>0.0000&times;</strong></li>
+            </ul>
+
+            <h3>Combined Metric (Gravity &times; Velocity)</h3>
+            <p>The simulator computes the probe's proper time by <strong>multiplying the gravitational Schwarzschild factor by the velocity Lorentz factor</strong>. Both effects act on the same clock, so their dilation factors combine multiplicatively:</p>
+            <div class="equation">d&tau;/dt = &radic;(1 &minus; r<sub>s</sub>/r) &times; &radic;(1 &minus; v&sup2;/c&sup2;)</div>
+            <ul>
+                <li>The first factor comes from general relativity (distance <strong>r</strong> from a black hole of Schwarzschild radius <strong>r<sub>s</sub></strong>); the second comes from special relativity (probe speed <strong>v</strong>)</li>
+                <li>They are <strong>independent controls</strong>: DISTANCE changes gravity, VELOCITY changes motion, and either one alone can slow the clock</li>
+                <li>The displayed TIME RATE is this combined probe rate divided by the reference clock's rate at 26,500 ly with the probe at rest. Since that reference rate is effectively 1, the baseline at 30 r<sub>s</sub> reads <strong>0.9831&times;</strong> &mdash; physically correct for a probe that is much closer to the hole than Earth.</li>
+                <li>Raising VELOCITY lowers the rate even when DISTANCE never changes; the rate reaches zero if <strong>v = c</strong> or if the probe sits at the event horizon (<strong>r = r<sub>s</sub></strong>)</li>
+                <li>The HUD's LORENTZ &gamma; readout shows the velocity contribution alone, while TIME RATE shows the combined gravitational and kinematic result</li>
+            </ul>
+
+            <h3>Advanced Relativistic Effects</h3>
+            <p>The six effects below are layered on top of the same clock model. They are visual/educational approximations, but each readout is driven by the indicated equation.</p>
+            <ul>
+                <li><strong>Gravitational &amp; kinematic redshift</strong> &mdash; <span class="equation-inline">1 + z = 1 / [&radic;(1 &minus; r<sub>s</sub>/r) &times; &radic;(1 &minus; v&sup2;/c&sup2;)]</span>. The REDSHIFT (z) HUD row diverges to &infin; at the horizon or at light speed; the probe, its glow and the accretion disk shift from blue through white/yellow into deep infrared as z grows.</li>
+                <li><strong>Tidal forces / spaghettification</strong> &mdash; <span class="equation-inline">a<sub>tidal</sub> &prop; 2GM/r&sup3;</span>. Inside <strong>3 r<sub>s</sub></strong> the probe is stretched radially and squeezed laterally (volume-preserving), and the TIDAL STRESS meter rises from 0% to 100% at the horizon.</li>
+                <li><strong>Relativistic aberration</strong> &mdash; <span class="equation-inline">cos &theta;&prime; = (cos &theta; + &beta;) / (1 + &beta; cos &theta;)</span>. Background stars bunch toward the probe's direction of travel as velocity (or apparent orbital speed) approaches c, then snap back when it stops.</li>
+                <li><strong>Frame dragging (Kerr spin)</strong> &mdash; the BLACK HOLE SPIN slider sets <strong>a = Jc/GM&sup2;</strong> from 0 to 0.99. Spacetime grid lines twist into a vortex near the center, and planets plus the probe pick up a softened Lense-Thirring tangential drift <span class="equation-inline">&Omega; &prop; a/r&sup3;</span>.</li>
+                <li><strong>Shapiro time delay</strong> &mdash; <span class="equation-inline">&Delta;t &asymp; (r<sub>s</sub>/c) ln(4 r<sub>E</sub> r / b&sup2;)</span>. PING LAG reports the physical round-trip delay in milliseconds; when the probe passes behind the lens (small impact parameter b) the PROBE clock visibly lags because telemetry arrives late.</li>
+                <li><strong>Photon sphere ghost images</strong> &mdash; the photon ring sits at <strong>1.5 r<sub>s</sub></strong>. Near it, secondary/tertiary Einstein rings and mirrored Earth/galaxy ghost sprites fade in to suggest light loops around the hole.</li>
+            </ul>
+
+            <h3>Three-Clock System</h3>
+            <ul>
+                <li><strong>LOCAL TIME</strong> — your real browser/device clock. Never affected by the simulation.</li>
+                <li><strong>REFERENCE</strong> — the Earth observer's clock at <strong>26,500 ly</strong>, ticking at &radic;(1 &minus; r<sub>s</sub>/26,500 ly) &asymp; 1. This is the constant baseline.</li>
+                <li><strong>PROBE</strong> — the observer you move, advancing at &radic;(1 &minus; r<sub>s</sub>/r) &times; &radic;(1 &minus; v&sup2;/c&sup2;), with r entered as r/r<sub>s</sub>. At rest at the 30 r<sub>s</sub> visual baseline it runs at 0.9831&times; the reference; dragged toward the horizon it slows toward 0; driven toward light speed it slows toward 0 no matter where it sits.</li>
+            </ul>
+
+            <h3>Camera Navigation</h3>
+            <ul>
+                <li><strong>Mouse</strong> &mdash; left-drag orbits, wheel zooms, right-drag (or Shift+drag) pans across the fabric so you can travel to every point of space.</li>
+                <li><strong>Click any glowing label</strong> (EARTH, JUPITER, PULSAR, GALAXY 1&hellip;) to fly the camera straight to that object; <strong>VIEW HOME</strong> returns to the overview.</li>
+                <li><strong>Double-click anywhere on the fabric</strong> to fly to that exact point.</li>
+            </ul>
+
+            <h3>Visualization Notes</h3>
+            <ul>
+                <li>The curved spacetime surface, lensing halo and accretion disk are <strong>educational visual approximations</strong>, not a numerical GR solver.</li>
+                <li>Each planet carries a small spacetime dimple on the fabric whose depth follows its mass relative to Earth (Jupiter &amp; Saturn dig deepest, Mercury barely dents it), following the classic &ldquo;mass warps spacetime&rdquo; picture.</li>
+                <li>The <strong>PULSAR</strong> is a rapidly spinning neutron star: it double-flashes and its radio-lobed beams sweep the sky, accompanied by an authentic fast damaru roll &mdash; a &ldquo;dha-ta-ta-dhin&rdquo; pattern at ~12 strikes per second with the deep drum (dha) and treble drum (ta) alternating (PULSAR button; real pulsars tick at milliseconds, stylized here as a drum).</li>
+                <li>The probe clock rate always comes from the exact d&tau;/dt calculation above.</li>
+                <li><strong>WORMHOLE CONCEPT — THEORETICAL:</strong> the deep funnel below the event horizon is a visual metaphor for curved spacetime. It is not a claim that ordinary black holes are wormholes.</li>
+            </ul>
+
+            <h3>Lab Measurements</h3>
+            <p>All inputs are physics-driven: DISTANCE is r/r<sub>s</sub>, MASS is 0.1&ndash;5.0 solar masses, VELOCITY is v/c, and SIMULATION SPEED only changes how fast the clocks advance on screen. No network signal or device telemetry is used.</p>
+
+            <h3>Physical Note</h3>
+            <p>This is an educational simulation. Real gravitational effects only occur in actual strong gravitational fields near massive objects. An object with mass cannot actually reach the speed of light; the VELOCITY slider explores the relativistic limiting behavior rather than a physically attainable engine.</p>
+        </div>
+    </div>
+</div>
+
+<!-- ===== VIRTUAL LAB NOTEBOOK ===== -->
+<div class="modal-backdrop" id="labPanel" role="dialog" aria-label="Virtual Lab Notebook" aria-hidden="true">
+    <div class="modal-card lab-modal">
+        <div class="modal-header">
+            <span>VIRTUAL RELATIVITY LAB — NOTEBOOK</span>
+            <button class="close-btn" id="labCloseBtn" aria-label="Close notebook">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="lab-grid">
+                <section class="lab-section">
+                    <h3>Preset Experiments</h3>
+                    <select id="presetSelect" class="lab-input">
+                        <option value="baseline">Baseline Reference — 30 rₛ, v = 0</option>
+                        <option value="horizon">Event Horizon Approach — 1.1 rₛ</option>
+                        <option value="velocity">Relativistic Velocity Freeze — v = 0.95 c</option>
+                        <option value="combined">Combined Gravity + Velocity — 2 rₛ, v = 0.9 c</option>
+                        <option value="photon">Photon Sphere — 1.5 rₛ</option>
+                    </select>
+                    <button class="lab-btn" id="applyPresetBtn">LOAD PRESET</button>
+                    <div class="stopwatch-box">
+                        <span>ELAPSED EXPERIMENT TIME</span>
+                        <strong id="labStopwatch">00:00:00</strong>
+                    </div>
+                </section>
+                <section class="lab-section">
+                    <h3>Record a Reading</h3>
+                    <input class="lab-input" id="readingNote" maxlength="120" placeholder="Observation (e.g. near horizon approach)">
+                    <button class="lab-btn primary" id="logReadingBtn">LOG READING</button>
+                    <p class="lab-hint">Each reading captures all three clocks, distance, mass, velocity, r<sub>s</sub> and the live time rate.</p>
+                </section>
+            </div>
+
+            <div class="lab-table-wrap">
+                <table class="lab-table">
+                    <thead>
+                        <tr>
+                            <th>#</th><th>Timestamp</th><th>Local</th><th>Reference</th><th>Probe</th>
+                            <th>r/rₛ</th><th>M (M☉)</th><th>v/c</th><th>rₛ (km)</th><th>Rate</th><th>Observation</th><th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="readingsBody"><tr><td colspan="12" class="empty-row">No readings logged yet.</td></tr></tbody>
+                </table>
+            </div>
+
+            <div class="lab-actions">
+                <label>Student / User
+                    <input class="lab-input" id="studentName" value="Student" maxlength="60">
+                </label>
+                <label>Session Date / Time
+                    <input class="lab-input" id="sessionDateTime" type="datetime-local">
+                </label>
+                <button class="lab-btn primary" id="printReportBtn">PRINT EXPERIMENT</button>
+                <button class="lab-btn" id="exportReadingsBtn">EXPORT CSV</button>
+                <button class="lab-btn danger" id="clearReadingsBtn">CLEAR ALL</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== OWNER: USAGE & BILLING ===== -->
+<div class="modal-backdrop" id="billingPanel" role="dialog" aria-label="Lab Usage and Billing" aria-hidden="true">
+    <div class="modal-card billing-modal">
+        <div class="modal-header">
+            <span>LAB USAGE / BILLING — OWNER ONLY</span>
+            <button class="close-btn" id="billingCloseBtn" aria-label="Close billing">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="pin-gate" id="billingGate">
+                <label>Owner PIN
+                    <input class="lab-input" id="billingPin" type="password" inputmode="numeric" placeholder="Enter PIN">
+                </label>
+                <button class="lab-btn primary" id="billingUnlockBtn">UNLOCK</button>
+                <p class="lab-hint">Default PIN <b>2470</b>. Change <code>OWNER_PIN</code> in <code>lab.js</code> before publishing.</p>
+                <p class="pin-error" id="billingPinError"></p>
+            </div>
+
+            <div id="billingContent" class="hidden">
+                <div class="billing-grid">
+                    <section class="lab-section">
+                        <h3>Current Session</h3>
+                        <label>User / Student ID
+                            <input class="lab-input" id="billingUser" value="Student" maxlength="60">
+                        </label>
+                        <button class="lab-btn" id="newSessionBtn">START NEW SESSION</button>
+                        <div class="usage-stats">
+                            <div><span>Connected / Open</span><strong id="usageTotal">00:00:00</strong></div>
+                            <div><span>Simulation Running</span><strong id="usageActive">00:00:00</strong></div>
+                            <div><span>Billable Time</span><strong id="usageBillable">00:00:00</strong></div>
+                            <div><span>Current Bill</span><strong id="usageAmount">0.00</strong></div>
+                        </div>
+                    </section>
+                    <section class="lab-section">
+                        <h3>Billing Settings</h3>
+                        <label>Currency
+                            <input class="lab-input" id="billingCurrency" value="₹" maxlength="4">
+                        </label>
+                        <label>Rate per hour
+                            <input class="lab-input" id="rateHour" type="number" min="0" step="1" value="60">
+                        </label>
+                        <label>Rate per minute
+                            <input class="lab-input" id="rateMinute" type="number" min="0" step="0.5" value="1">
+                        </label>
+                        <label>Bill on
+                            <select class="lab-input" id="billingBasis">
+                                <option value="active">Active simulation time</option>
+                                <option value="total">Total connected time</option>
+                            </select>
+                        </label>
+                        <label>Minimum increment (minutes)
+                            <input class="lab-input" id="minIncrement" type="number" min="1" step="1" value="1">
+                        </label>
+                        <button class="lab-btn primary" id="saveBillingBtn">SAVE SETTINGS</button>
+                    </section>
+                </div>
+
+                <div class="lab-table-wrap">
+                    <table class="lab-table">
+                        <thead>
+                            <tr><th>Session</th><th>User</th><th>Started</th><th>Connected</th><th>Active</th><th>Billable</th><th>Amount</th><th>Status</th><th></th></tr>
+                        </thead>
+                        <tbody id="billingBody"></tbody>
+                    </table>
+                </div>
+                <div class="lab-actions">
+                    <button class="lab-btn" id="exportBillingBtn">EXPORT BILLING CSV</button>
+                    <button class="lab-btn danger" id="resetBillingBtn">RESET ALL BILLING DATA</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Populated on demand, printed via window.print() -->
+<div id="printReport" class="print-report" aria-hidden="true"></div>
+
+<script src="app.js"></script>
+<script src="lab.js"></script>
+<script src="intro.js"></script>
+</body>
+</html>
